@@ -1,0 +1,29 @@
+from flask import jsonify
+from .services.data_processing import process_etf_data, process_etf_data_chart, add_etf, list_routes
+
+def configure_routes(app):
+    app.route('/api/etfs', methods=['GET'])(get_etf_data)
+    app.route('/api/etfs/chart_data', methods=['GET'])(get_etf_chart_data_double)
+    app.route('/api/etfs/add', methods=['POST'])(add_etf)
+    app.route('/routes', methods=['GET'])(list_routes)
+    # Additional routes can be configured here
+
+def get_etf_data():
+    data = process_etf_data()
+    return jsonify(data)
+
+def get_etf_chart_data_double():
+    data = process_etf_data_chart()
+    return jsonify(data)
+
+def add_etf():
+    # This function will be handled in services/data_processing.py
+    pass
+
+def list_routes():
+    # This function will be handled in services/data_processing.py
+    pass
+
+# Other functions mapped in routes can also be defined here.
+
+

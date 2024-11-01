@@ -1,0 +1,29 @@
+import pandas as pd
+import numpy as np
+from scipy.signal import savgol_filter
+import os
+
+def detrend_data(prices):
+    x = np.arange(len(prices))
+    y = np.array(prices)
+    model = np.polyfit(x, y, 3)
+    trend = np.poly1d(model)
+    detrended = y - trend(x)
+    return detrended
+
+def process_etf_data(directory='data'):
+    # Example function to process data
+    pass
+
+def process_etf_data_chart(directory='data'):
+    # Example function to process chart data
+    pass
+
+def add_etf():
+    # Handles adding a new ETF
+    pass
+
+def list_routes():
+    # Function to list all routes for debugging
+    pass
+

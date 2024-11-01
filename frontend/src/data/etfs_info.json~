@@ -1,0 +1,5 @@
+{
+  "XLF": { "sector": "Financials", "sectorSize": 9000 },
+  "XLE": { "sector": "Energy", "sectorSize": 4500 },
+  "QQQ": { "sector": "Hi Tech", "sectorSize": 8700 },
+}

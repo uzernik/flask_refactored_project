@@ -1,0 +1,49 @@
+// ChartData.js
+import React from 'react';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+
+ChartJS.register(
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Title,
+  Tooltip,
+  Legend
+);
+
+const ChartData = ({ chartData, selectedEtfs, colors }) => {
+  if (!selectedEtfs.length) {
+    return <div>No ETFs selected for charting</div>;
+  }
+
+  const lineChartData = {
+    labels: Object.keys(chartData),
+    datasets: selectedEtfs.map(etf => ({
+      label: `Detrended Series for ${etf}`,
+      data: Object.keys(chartData).map(date => chartData[date][etf] || null),
+      fill: false,
+      borderColor: colors[etf],
+      tension: 0.1
+    }))
+  };
+
+  return (
+    <div className="chart-container">
+      <h2>Detrended Data for Selected ETFs</h2>
+      <Line data={lineChartData} />
+    </div>
+  );
+};
+
+export default ChartData;

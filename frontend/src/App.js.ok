@@ -1,0 +1,122 @@
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import './App.css';  // Adjust the path if the file is in a different directory
+
+function App() {
+  const [etfData, setEtfData] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  // This function converts a value between 0 and 100 to a color
+  // from green (0) to red (100).
+  const getColor = (value) => {
+    const hue = (100 - value) * 120 / 100;  // 0 (red) to 120 (green)
+    return `hsl(${hue}, 100%, 50%)`;
+  };
+  
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/etf')
+      .then(response => {
+        setEtfData(response.data);  // Assuming the data is directly usable
+        setIsLoading(false);
+      })
+      .catch(error => {
+        console.error('Error fetching data:', error);
+        setIsLoading(false);
+      });
+  }, []);
+
+  if (isLoading) {
+    return <div>Loading data, please wait...</div>;
+  }
+
+  if (!Object.keys(etfData).length) {
+    return <div>No data available</div>;
+  }
+
+  // Extract all ETF names dynamically across all dates
+  const etfs = Object.keys(etfData).reduce((acc, date) => {
+    const etfNames = Object.keys(etfData[date]);
+    etfNames.forEach(etf => {
+      if (!acc.includes(etf)) {
+        acc.push(etf);
+      }
+    });
+    return acc;
+  }, []);
+
+  // Utility function to generate header rows
+  const generateHeaderRows = (etfs, isIntervalHeader = false) => [
+    <tr key={`header-main-${isIntervalHeader ? 'interval' : 'standard'}`} className={isIntervalHeader ? 'interval-header' : ''}>
+      <th>Date</th>
+      {etfs.map(etf => <th colSpan="3" key={`${etf}-main`} className='bold-left-border'>{etf}</th>)}
+    </tr>,
+    <tr key={`header-sub-${isIntervalHeader ? 'interval' : 'standard'}`} className={isIntervalHeader ? 'interval-header' : ''}>
+      <th></th> {/* Empty cell for the date column */}
+      {etfs.flatMap(etf => [
+        <th key={`${etf}-close`} className='bold-left-border'>Close</th>,
+        <th key={`${etf}-detrend`}>Detrend</th>,
+        <th key={`${etf}-glp`}>GL%</th>
+      ])}
+    </tr>
+  ];
+
+  // Utility function to render ETF cells
+  const renderEtfCells = (date, etf, data) => [
+    <td key={`${date}-${etf}-close`} className='bold-left-border'>{data.Close}</td>,
+    <td key={`${date}-${etf}-dc`} style={data.Close !== 0 ? { backgroundColor: getColor(data.DC) } : undefined}>{data.DC}</td>,
+    <td key={`${date}-${etf}-glp`}>{data.GLP}</td>,
+  ];
+
+  return (
+    <div className="App">
+      <h1>ETF Data Overview</h1>
+      <div className="table-responsive">
+        <table className="etf-table">
+          <thead>
+            {generateHeaderRows(etfs)}
+          </thead>
+          <tbody>
+            {Object.entries(etfData).map(([date, etfsData]) => {
+              const [year, month] = date.split('-').map(Number); // Split date into year and month
+              
+              // Condition to insert header every December of an even year
+              const isEvenYear = year % 2 === 0;
+              const isDec = month === 12;
+              const shouldInsertHeader = isEvenYear && isDec;
+
+              return (
+                <React.Fragment key={date}>
+                  {shouldInsertHeader && generateHeaderRows(etfs, true)} {/* Insert interval header with special styling */}
+                  <tr>
+                    <td>{date}</td>
+                    {etfs.flatMap(etf => {
+                      const data = etfsData[etf] || { Close: 0, DC: 0, GLP: 0 };  // Default to 0 if no data
+                      return renderEtfCells(date, etf, data);
+                    })}
+                  </tr>
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+/* Updates Summary:
+1. Created a utility function `generateHeaderRows` to generate both standard and interval headers.
+2. Added a new prop `isIntervalHeader` to distinguish interval headers from the standard header.
+3. Used the `generateHeaderRows` function whenever headers need to be inserted, making the code more reusable.
+4. Added special CSS class `interval-header` to visually differentiate repeated interval headers.
+5. Updated duplicate keys in the header row to ensure each key is unique, preventing rendering issues.
+6. Created a utility function `renderEtfCells` to handle rendering of ETF table cells, reducing code duplication and improving maintainability.
+7. Updated CSS for better table responsiveness:
+   - Added the class `etf-table` to the table element.
+   - Suggested CSS updates:
+     - Make headers sticky for easier navigation through large datasets.
+     - Add padding and margin adjustments to cells to make the table more readable.
+8. Added a check to handle the case where `etfData` is empty, displaying a "No data available" message if there is no data.
+*/

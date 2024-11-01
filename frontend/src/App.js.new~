@@ -1,0 +1,204 @@
+
+
+
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import Select from 'react-select';  // Added import for react-select
+import { Line } from 'react-chartjs-2';
+import 'chart.js/auto';
+import './App.css';  // Adjust the path if the file is in a different directory
+
+function App() {
+  const [etfData, setEtfData] = useState({});
+  const [chartData, setChartData] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedETF, setSelectedETF] = useState('BND');
+  const [selectedEtfs, setSelectedEtfs] = useState(['BND']);  // Changed from single ETF to multiple ETFs
+
+  useEffect(() => {
+    const apiUrl = `${process.env.REACT_APP_API_URL}/api/etfs`;  // Use the API URL from the environment variable
+    axios.get(apiUrl)
+      .then(response => {
+        setEtfData(response.data);  // Assuming the data is directly usable
+	console.log('ETF Data Loaded:', response.data);  // Log the loaded ETF data for debugging
+        setIsLoading(false);
+      })
+      .catch(error => {
+        console.error('Error fetching data:', error);
+        setIsLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    const chartApiUrl = `${process.env.REACT_APP_API_URL}/api/etfs/chart_data`;
+    axios.get(chartApiUrl)
+      .then(response => {
+        console.log('Chart data response:', response.data);  // Log response to debug
+        setChartData(response.data);
+      })
+      .catch(error => {
+        console.error('Error fetching chart data:', error);
+      });
+  }, []);
+
+  const getColor = (value) => {
+    if (value < 0 || value > 100) {
+      return 'hsl(0, 0%, 80%)';  // Gray for out-of-range values
+    }
+    const hueStart = 120; // Green
+    const hueEnd = 0; // Red
+    const hue = hueStart - (value * (hueStart - hueEnd) / 100);
+    return `hsl(${hue}, 100%, 50%)`;
+  };
+
+  if (isLoading) {
+    return <div>Loading data, please wait...</div>;
+  }
+
+  if (!Object.keys(etfData).length) {
+    return <div>No data available</div>;
+  }
+
+  // Extract all ETF names dynamically across all dates
+  const etfs = Array.from(new Set(Object.values(etfData).flatMap(dateData => Object.keys(dateData))));
+  console.log('Array:', etfs);    
+
+  // Generate colors for each ETF
+  const colors = etfs.reduce((acc, etf, index) => {
+    const hue = (index * 360) / etfs.length;
+    acc[etf] = `hsl(${hue}, 100%, 50%)`;
+    return acc;
+  }, {});
+
+
+  console.log('Selected ETFs:', selectedEtfs);
+
+
+  // Prepare data for the line chart
+  const lineChartData = {
+    labels: Object.keys(chartData),
+    datasets: selectedEtfs.map(etf => ({
+    //datasets: etfs.map(etf => ({
+      label: `Detrended Series for ${etf}`,
+      data: Object.keys(chartData).map(date => chartData[date][etf] || null),
+      fill: false,
+      borderColor: colors[etf],
+      tension: 0.1
+    }))
+  };
+
+// New handler for multi-select dropdown
+  const handleEtfSelection = (selectedOptions) => {
+      setSelectedEtfs(selectedOptions ? selectedOptions.map(option => option.value) : []);
+  };    
+
+  const CustomOption = (props) => {
+    const { innerRef, innerProps, isSelected, label } = props;
+    return (
+      <div ref={innerRef} {...innerProps} className="custom-option">
+	<input
+	  type="checkbox"
+	  checked={isSelected}
+	  readOnly
+	/>
+	<label>{label}</label>
+      </div>
+    );
+  };
+    
+  return (
+    <div className="App">
+      <h1>ETF Data Overview</h1>
+      <div className="etf-selector">
+        <label htmlFor="etf-select">Select ETF: </label>
+	<Select
+	  id="etf-select"
+	  isMulti
+	  value={selectedEtfs.map(etf => ({ value: etf, label: etf }))}
+	  options={etfs.map(etf => ({ value: etf, label: etf }))}
+	  onChange={handleEtfSelection}
+	  className="multi-select"
+	  placeholder="Select ETFs to display..."
+	  styles={{
+	    control: (base) => ({
+	      ...base,
+	      backgroundColor: "#f0f0f0",
+	      borderColor: "#ccc",
+	      boxShadow: "none",
+	    }),
+	    option: (base, state) => ({
+	      ...base,
+	      backgroundColor: state.isSelected ? "#e0e0e0" : "#fff",
+	      color: state.isSelected ? "#000" : "#333",
+	      ":hover": {
+		backgroundColor: "#f2f2f2",
+	      },
+	    }),
+	    multiValue: (base) => ({
+	      ...base,
+	      backgroundColor: "#d3d3d3",
+	      color: "#000",
+	    }),
+	    multiValueLabel: (base) => ({
+	      ...base,
+	      color: "#000",
+	    }),
+	    multiValueRemove: (base) => ({
+	      ...base,
+	      color: "#333",
+	      ":hover": {
+		backgroundColor: "#ffcccc",
+		color: "#ff0000",
+	      },
+	    }),
+	  }}
+	/>
+      </div>
+      <div className="table-responsive">
+        <table className="etf-table">
+
+          <thead><tr><th>Date</th>$1</tr><tr><th></th>$2</tr></thead>
+          <tbody>{Object.entries(etfData).map(([date, etfsData]) => {
+              const [year, month] = date.split('-').map(Number); // Split date into year and month
+              // Condition to insert header every December of an even year
+              const isEvenYear = year % 2 === 0;
+              const isDec = month === 12;
+              const shouldInsertHeader = isEvenYear && isDec;
+
+              return (
+                <React.Fragment key={date}>
+                  {shouldInsertHeader && (
+                    <tr className="interval-header">
+                      <th>Date</th>
+                      {selectedEtfs.map(etf => <th colSpan="6" key={`${etf}-interval`} className='bold-left-border'>{etf}</th>)}
+                    </tr>
+                  )}
+                  <tr>
+                    <td>{date}</td>
+                    {selectedEtfs.flatMap(etf => {
+                      const data = etfsData[etf] || { Close: 0, DC: 0, GLP: 0, MM: 0, ZS: 0, LT: 0 };  // Default to 0 if no data
+                      return [
+                        <td key={`${date}-${etf}-close`} className='bold-left-border'>{data.Close}</td>,
+                        <td key={`${date}-${etf}-glp`}>{data.GLP}</td>,
+                        <td key={`${date}-${etf}-dc`} style={data.DC !== undefined ? { backgroundColor: getColor(data.DC) } : undefined}>{data.DC}</td>,
+                        <td key={`${date}-${etf}-mm`} style={data.MM !== undefined ? { backgroundColor: getColor(data.MM * 100) } : undefined}>{data.MM}</td>,
+                        <td key={`${date}-${etf}-zs`} style={data.ZS !== undefined ? { backgroundColor: getColor((data.ZS + 3) * 16.67) } : undefined}>{data.ZS}</td>,
+                        <td key={`${date}-${etf}-lt`} style={data.LT !== undefined ? { backgroundColor: getColor(data.LT) } : undefined}>{data.LT}</td>
+                      ];
+                    })}
+                  </tr>
+                </React.Fragment>
+              );
+            })}</tbody>
+
+        </table>
+      </div>
+      <div className="chart-container">
+        <h2>Detrended Data for All ETFs</h2>
+        <Line data={lineChartData} />
+      </div>
+    </div>
+  );
+}
+
+export default App;

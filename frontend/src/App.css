@@ -1,0 +1,54 @@
+/* App.css - Add or update these styles */
+
+.table-responsive {
+  overflow-x: auto;  /* Ensures the table is scrollable horizontally if too wide */
+}
+
+.etf-table {
+  width: 100%;
+  border-collapse: collapse; /* Essential for border handling */
+}
+
+th, td {
+  padding: 12px;  /* Increased padding for better readability */
+  text-align: left;
+  border-right: 1px solid #ccc; /* Light vertical borders for columns */
+  border-bottom: 1px solid #ccc; /* Light horizontal borders between rows */
+}
+
+th:last-child, td:last-child {
+  border-right: none; /* Removes the vertical border from the last column */
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  background: #f8f8f8; /* Light background for sticky headers */
+  border-bottom: 2px solid black; /* Stronger border for header row */
+  z-index: 1; /* Ensure headers are above the rest of the table content */
+}
+
+.bold-left-border {
+  border-left: 2px solid black; /* Strong bold border on the left */
+}
+
+.interval-header th {
+  background: #e6e6e6; /* Different background for interval headers to make them stand out */
+  padding: 14px;  /* Extra padding for interval headers */
+}
+
+.multi-select {
+  min-width: 300px;
+  max-width: 100%;
+  z-index: 1000;  /* Ensure it is above other elements */
+}
+
+/* Additional debug styling to ensure you can see the dropdown clearly */
+.react-select__menu {
+  border: 1px solid #ccc;
+  z-index: 9999 !important;  /* To ensure it appears above other content */
+}
+
+.multi-select {
+  width: 200px !important; /* Ensure the width is enforced */
+}

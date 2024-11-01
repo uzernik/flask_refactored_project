@@ -1,0 +1,23 @@
+ return (
+    <div className="legend-container">
+      <h2>ETF Legend</h2>
+      <ul className="legend-list">
+        {etfDescriptions.map((etf, index) => (
+          <li key={index} className="legend-item">
+            <strong>{etf.symbol}:</strong> {etf.description}, Sector Size: {etf.sectorSize}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default Legend;
+
+/*
+Expected props:
+- etfDescriptions: An array of objects where each object represents an ETF and contains the following properties:
+  - symbol: The symbol of the ETF (e.g., "QQQ")
+  - description: A brief description of the ETF
+  - sectorSize: The size of the sector in billions
+*/

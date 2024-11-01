@@ -1,0 +1,236 @@
+
+
+// App.js
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import Select, { components } from 'react-select';
+import './App.css';
+import ChartData from './ChartData'; 
+import TableResponsive from './TableResponsive';
+import {
+  Chart as ChartJS,
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+
+ChartJS.register(
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Title,
+  Tooltip,
+  Legend
+);
+
+const CheckboxOption = (props) => (
+  <components.Option {...props}>
+    <input
+      type="checkbox"
+      checked={props.isSelected}
+      onChange={() => null}
+      style={{ marginRight: 8 }}
+    />
+    <label>{props.label}</label>
+  </components.Option>
+);
+
+function App() {
+  const [selectedEtfs, setSelectedEtfs] = useState([]);
+  const [showSelect, setShowSelect] = useState(false);
+
+    
+  // Set up React Query
+  const queryClient = useQueryClient();
+
+  // Fetch ETF Data
+  const { data: etfData, isLoading, error } = useQuery({
+    queryKey: ['etfs'],
+    queryFn: async () => {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/etfs`);
+      return response.data;
+    }
+  });
+
+    
+  // Fetch Chart Data
+  const { data: chartData } = useQuery({
+    queryKey: ['chartData'],
+    queryFn: async () => {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/etfs/chart_data`);
+      return response.data;
+    },
+    enabled: !!etfData, // Only fetch chart data when ETF data is available
+  });
+
+  // Mutation to Add ETF
+  const addEtfMutation = useMutation({
+    mutationFn: (newEtf) => axios.post(`${process.env.REACT_APP_API_URL}/api/etfs/add`, { symbol: newEtf }),
+    onSuccess: () => {
+      // Invalidate and refetch etfs after adding a new one
+      queryClient.invalidateQueries(['etfs']);
+    }
+  });
+
+  // Extract ETF names from the ETF data
+  const etfs = Array.isArray(etfData)
+    ? etfData
+    : Array.from(new Set(Object.values(etfData || {}).flatMap(dateData => Object.keys(dateData || {}))));
+
+  // Add useEffect hook to initialize selectedEtfs with four ETFs
+  useEffect(() => {
+    if (etfs.length > 0 && selectedEtfs.length === 0) {
+      // Set selectedEtfs to the first four ETFs if they exist
+      setSelectedEtfs(etfs.slice(0, 4));
+    }
+  }, [etfs, selectedEtfs]);
+
+
+const handleAddNewEtf = () => {
+  const newEtfInput = prompt('Enter the new ETF symbols (e.g., QQQ, SPY, DIA):');
+  if (newEtfInput) {
+    // Split the input into individual ETF symbols
+    const newEtfs = newEtfInput.toUpperCase().split(/[^a-zA-Z0-9]+/).filter(Boolean);
+
+    // Mutate using React Query to add all ETFs in one request
+    addEtfsMutation.mutate(newEtfs, {
+      onSuccess: () => {
+        console.log(`ETFs ${newEtfs.join(', ')} added successfully.`);
+	setSelectedEtfs((prevSelected) => {
+	    const updatedSelected = Array.from(new Set([...newEtfs, ...prevSelected])); // Prepend new ETFs and avoid duplicates
+	    return updatedSelected;
+	});
+        setSelectedEtfs((prevSelected) => [...newEtfs, ...prevSelected]); // Prepend to the list on successful addition
+      },
+      onError: (error) => {
+        console.error('Error adding ETFs:', error);
+        alert('Error: Failed to add one or more ETFs. Please check the console for more details.');
+      },
+    });
+  }
+};
+
+// Modified React Query mutation to handle multiple ETFs
+const addEtfsMutation = useMutation({
+  mutationFn: (etfs) => axios.post(`${process.env.REACT_APP_API_URL}/api/etfs/add_multiple`, { symbols: etfs }),
+  onSuccess: () => {
+    queryClient.invalidateQueries(['etfs']); // Invalidate to refetch ETF list after successful addition
+  }
+});
+
+
+  // Handle ETF Selection
+  const handleSelectEtfs = (selectedOptions) => {
+    console.log('handleSelectEtfs called with:', selectedOptions);
+    const newSelectedEtfs = selectedOptions ? selectedOptions.map(option => option.value) : [];
+    console.log('New selected ETFs:', newSelectedEtfs);
+    setSelectedEtfs((prevSelected) => {
+      const updatedSelected = Array.from(new Set([...prevSelected, ...newSelectedEtfs]));
+      return updatedSelected;
+    });
+  };
+
+  const handleDeselectEtf = (etfToRemove) => {
+    console.log('handleDeselectEtf called with:', etfToRemove);
+    setSelectedEtfs((prevSelectedEtfs) => prevSelectedEtfs.filter(etf => etf !== etfToRemove));
+  };
+
+  const getColor = (value) => {
+    if (value < 0 || value > 100) {
+      return 'hsl(0, 0%, 80%)';
+    }
+    const hueStart = 120;
+    const hueEnd = 0;
+    const hue = hueStart - (value * (hueStart - hueEnd) / 100);
+    return `hsl(${hue}, 100%, 50%)`;
+  };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error fetching data: {error.message}</div>;
+  }
+
+  const colors = Array.isArray(etfs) && etfs.length > 0 
+    ? etfs.reduce((acc, etf, index) => {
+        const hue = (index * 360) / etfs.length;
+        acc[etf] = `hsl(${hue}, 100%, 50%)`;
+        return acc;
+      }, {})
+    : {};
+
+  return (
+    <div className="App">
+      <h1>ETF Data Overview</h1>
+      <button
+        onClick={() => {
+          setShowSelect(!showSelect);
+          console.log('Dropdown visibility toggled. showSelect:', !showSelect);
+          console.log('Current state - selectedEtfs:', selectedEtfs, ', etfs:', etfs);
+        }}
+        style={{
+          fontSize: '24px',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          marginBottom: '10px'
+        }}
+        aria-label="Open ETF selector"
+      >
+        +
+      </button>
+      {showSelect && (
+        <Select
+          id="etf-select"
+          isMulti
+          options={etfs.filter(etf => !selectedEtfs.includes(etf)).map(etf => ({ value: etf, label: etf }))}
+          onChange={handleSelectEtfs}
+          closeMenuOnSelect={false}
+          hideSelectedOptions={false}
+          components={{ Option: CheckboxOption, MultiValue: () => null, Control: () => null }}
+          menuIsOpen={true}
+          placeholder=""
+          className="multi-select"
+          classNamePrefix="react-select"
+          styles={{
+            control: (base) => ({
+              display: 'none'
+            }),
+            menu: (base) => ({
+              ...base,
+              zIndex: 9999,
+              marginTop: '45px',
+            }),
+            option: (base, state) => ({
+              ...base,
+              backgroundColor: state.isSelected ? '#d3d3d3' : base.backgroundColor,
+              color: state.isSelected ? '#000' : base.color,
+            })
+          }}
+        />
+      )}
+      <button
+        onClick={handleAddNewEtf}
+        style={{
+          fontSize: '16px',
+          marginTop: '10px',
+          cursor: 'pointer'
+        }}
+      >
+        Add New ETF
+      </button>
+      <TableResponsive etfData={etfData} selectedEtfs={selectedEtfs} getColor={getColor} handleDeselectEtf={handleDeselectEtf} />
+      <ChartData chartData={chartData} selectedEtfs={selectedEtfs} colors={colors} />
+    </div>
+  );
+}
+
+export default App;

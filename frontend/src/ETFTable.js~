@@ -1,0 +1,163 @@
+// ETFTable.js
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+
+ChartJS.register(
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Title,
+  Tooltip,
+  Legend
+);
+
+function getColor(value) {
+  if (value < 0 || value > 100) {
+    return 'hsl(0, 0%, 80%)';
+  }
+  const hueStart = 120;
+  const hueEnd = 0;
+  const hue = hueStart - (value * (hueStart - hueEnd) / 100);
+  return `hsl(${hue}, 100%, 50%)`;
+}
+
+function ETFTable() {
+  const [etfData, setEtfData] = useState({});
+  const [chartData, setChartData] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedEtfs, setSelectedEtfs] = useState([]);
+
+  useEffect(() => {
+    const apiUrl = `${process.env.REACT_APP_API_URL}/api/etfs`;
+    axios.get(apiUrl)
+      .then(response => {
+        setEtfData(response.data);
+        setIsLoading(false);
+      })
+      .catch(error => {
+        console.error('Error fetching data:', error);
+        setIsLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    const chartApiUrl = `${process.env.REACT_APP_API_URL}/api/etfs/chart_data`;
+    axios.get(chartApiUrl)
+      .then(response => {
+        setChartData(response.data);
+      })
+      .catch(error => {
+        console.error('Error fetching chart data:', error);
+      });
+  }, []);
+
+  const handleDeselectEtf = (etfToRemove) => {
+    setSelectedEtfs((prevSelectedEtfs) => prevSelectedEtfs.filter(etf => etf !== etfToRemove));
+    setEtfs((prevEtfs) => {
+      if (!prevEtfs.includes(etfToRemove)) {
+        return [...prevEtfs, etfToRemove];
+      }
+      return prevEtfs;
+    });
+  };
+
+  if (!Object.keys(etfData).length) {
+    return <div>No data available</div>;
+  }
+
+  const colors = selectedEtfs.reduce((acc, etf, index) => {
+    const hue = (index * 360) / selectedEtfs.length;
+    acc[etf] = `hsl(${hue}, 100%, 50%)`;
+    return acc;
+  }, {});
+
+  const lineChartData = {
+    labels: Object.keys(chartData),
+    datasets: selectedEtfs.map(etf => ({
+      label: `Detrended Series for ${etf}`,
+      data: Object.keys(chartData).map(date => chartData[date][etf] || null),
+      fill: false,
+      borderColor: colors[etf],
+      tension: 0.1
+    }))
+  };
+
+  return (
+    <div className="table-responsive">
+      <table className="etf-table">
+        <thead>
+          <tr>
+            <th></th>
+            {selectedEtfs.map(etf => (
+              <th colSpan="6" key={`${etf}-main`} className='bold-left-border'>
+                {etf}
+                <button
+                  onClick={() => handleDeselectEtf(etf)}
+                  style={{
+                    marginLeft: '8px',
+                    background: 'none',
+                    border: 'none',
+                    color: 'red',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                  aria-label={`Remove ${etf}`}
+                >
+                  X
+                </button>
+              </th>
+            ))}
+          </tr>
+          <tr>
+            <th>Date</th>
+            {selectedEtfs.flatMap(etf => [
+              <th key={`${etf}-close`} className='bold-left-border'>Close</th>,
+              <th key={`${etf}-glp`}>GL%</th>,
+              <th key={`${etf}-dc`}>Detrend</th>,
+              <th key={`${etf}-mm`}>MM</th>,
+              <th key={`${etf}-zs`}>ZS</th>,
+              <th key={`${etf}-lt`}>LT</th>
+            ])}
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(etfData).map(([date, etfsData]) => (
+            <React.Fragment key={date}>
+              <tr>
+                <td>{date}</td>
+                {selectedEtfs.flatMap(etf => {
+                  const data = etfsData[etf] || { Close: 0, DC: 0, GLP: 0, MM: 0, ZS: 0, LT: 0 };
+                  return [
+                    <td key={`${date}-${etf}-close`} className='bold-left-border'>{data.Close}</td>,
+                    <td key={`${date}-${etf}-glp`}>{data.GLP}</td>,
+                    <td key={`${date}-${etf}-dc`} style={data.DC !== undefined ? { backgroundColor: getColor(data.DC) } : undefined}>{data.DC}</td>,
+                    <td key={`${date}-${etf}-mm`} style={data.MM !== undefined ? { backgroundColor: getColor(data.MM * 100) } : undefined}>{data.MM}</td>,
+                    <td key={`${date}-${etf}-zs`} style={data.ZS !== undefined ? { backgroundColor: getColor((data.ZS + 3) * 16.67) } : undefined}>{data.ZS}</td>,
+                    <td key={`${date}-${etf}-lt`} style={data.LT !== undefined ? { backgroundColor: getColor(data.LT) } : undefined}>{data.LT}</td>
+                  ];
+                })}
+              </tr>
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
+      <div className="chart-container">
+        <Line data={lineChartData} />
+      </div>
+    </div>
+  );
+}
+
+export default ETFTable;

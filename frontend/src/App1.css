@@ -1,0 +1,63 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.table-container {
+    width: 100%;
+    overflow-x: auto; /* Allows the table to scroll horizontally if it's too wide */
+}
+
+table {
+    width: 100%; /* Makes the table stretch to fill the container */
+    border-collapse: collapse; /* Ensures that the border styles don't double up */
+}
+
+th, td {
+    border: 1px solid #ccc; /* Light gray border */
+    padding: 8px; /* Adds some spacing inside cells */
+    text-align: left; /* Aligns text to the left; adjust as needed */
+}
+
+th {
+    background-color: #f4f4f4; /* Light gray background for headers */
+}
+
+body {
+    background-color: #f4f4f4;
+}
+

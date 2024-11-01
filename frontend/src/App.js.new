@@ -1,0 +1,267 @@
+
+
+
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import Select, { components } from 'react-select';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+import './App.css';
+
+ChartJS.register(
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Title,
+  Tooltip,
+  Legend
+);
+
+const CheckboxOption = (props) => (
+  <components.Option {...props}>
+    <input
+      type="checkbox"
+      checked={props.isSelected}
+      onChange={() => null} // react-select handles the onChange, this is just for display
+      style={{ marginRight: 8 }}
+    />
+    <label>{props.label}</label>
+  </components.Option>
+);
+
+function App() {
+  const [etfData, setEtfData] = useState({});
+  const [chartData, setChartData] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedEtfs, setSelectedEtfs] = useState([]);
+  const [showSelect, setShowSelect] = useState(false);
+  const [etfs, setEtfs] = useState([]);
+
+  useEffect(() => {
+    const apiUrl = `${process.env.REACT_APP_API_URL}/api/etfs`;
+    axios.get(apiUrl)
+      .then(response => {
+        setEtfData(response.data);
+        setIsLoading(false);
+
+        const extractedEtfs = Array.from(new Set(Object.values(response.data).flatMap(dateData => Object.keys(dateData))));
+        setEtfs(extractedEtfs);
+
+        if (extractedEtfs.length > 0 && selectedEtfs.length === 0) {
+          setSelectedEtfs([extractedEtfs[0]]);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching data:', error);
+        setIsLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    const chartApiUrl = `${process.env.REACT_APP_API_URL}/api/etfs/chart_data`;
+    axios.get(chartApiUrl)
+      .then(response => {
+        setChartData(response.data);
+      })
+      .catch(error => {
+        console.error('Error fetching chart data:', error);
+      });
+  }, []);
+
+  const getColor = (value) => {
+    if (value < 0 || value > 100) {
+      return 'hsl(0, 0%, 80%)';
+    }
+    const hueStart = 120;
+    const hueEnd = 0;
+    const hue = hueStart - (value * (hueStart - hueEnd) / 100);
+    return `hsl(${hue}, 100%, 50%)`;
+  };
+
+  const handleSelectEtfs = (selectedOptions) => {
+    setSelectedEtfs(selectedOptions ? selectedOptions.map(option => option.value) : []);
+    // setShowSelect(false); // Keep the dropdown open for multiple selection
+  };
+
+  const handleDeselectEtf = (etfToRemove) => {
+    setSelectedEtfs(prevSelectedEtfs => prevSelectedEtfs.filter(etf => etf !== etfToRemove));
+  };
+
+  if (isLoading) {
+    return <div>Loading data, please wait...</div>;
+  }
+
+  if (!Object.keys(etfData).length) {
+    return <div>No data available</div>;
+  }
+
+  const colors = etfs.reduce((acc, etf, index) => {
+    const hue = (index * 360) / etfs.length;
+    acc[etf] = `hsl(${hue}, 100%, 50%)`;
+    return acc;
+  }, {});
+
+  const lineChartData = {
+    labels: Object.keys(chartData),
+    datasets: selectedEtfs.map(etf => ({
+      label: `Detrended Series for ${etf}`,
+      data: Object.keys(chartData).map(date => chartData[date][etf] || null),
+      fill: false,
+      borderColor: colors[etf],
+      tension: 0.1
+    }))
+  };
+
+  return (
+    <div className="App">
+      <h1>ETF Data Overview</h1>
+      <button
+        onClick={() => setShowSelect(!showSelect)}
+        style={{
+          fontSize: '24px',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          marginBottom: '10px'
+        }}
+        aria-label="Open ETF selector"
+      >
+        +
+      </button>
+      {showSelect && (
+        <Select
+          id="etf-select"
+          isMulti
+          options={[...etfs.filter(etf => !selectedEtfs.includes(etf)).map(etf => ({ value: etf, label: etf })), { value: 'other', label: 'Other...' }]}
+          onChange={(selectedOptions) => {
+            const selectedValues = selectedOptions ? selectedOptions.map(option => option.value) : [];
+            if (selectedValues.includes('other')) {
+              const newEtf = prompt('Enter the new ETF symbol (e.g., QQQ):');
+              if (newEtf) {
+                setEtfs(prevEtfs => [...prevEtfs, newEtf]);
+                setSelectedEtfs([...selectedValues.filter(value => value !== 'other'), newEtf]);
+              }
+            } else {
+              setSelectedEtfs(selectedValues);
+            }
+          }}
+          closeMenuOnSelect={false}
+          hideSelectedOptions={true}
+          components={{ Option: CheckboxOption, MultiValue: () => null }}
+          menuIsOpen={true} // Keep the dropdown open directly without additional click
+          placeholder="Select ETFs..."
+          className="multi-select"
+          classNamePrefix="react-select"
+          styles={{
+            control: (base) => ({
+              ...base,
+              width: '200px',
+              backgroundColor: "#f0f0f0",
+              borderColor: "#ccc",
+              boxShadow: "none",
+              padding: "5px",
+              fontSize: "14px"
+            }),
+            menu: (base) => ({
+              ...base,
+              zIndex: 9999,
+            }),
+            option: (base, state) => ({
+              ...base,
+              backgroundColor: state.isSelected ? '#d3d3d3' : base.backgroundColor,
+              color: state.isSelected ? '#000' : base.color,
+            })
+          }}
+        />
+      )}
+      <div className="table-responsive">
+        <table className="etf-table">
+          <thead>
+            <tr>
+              <th></th>
+              {selectedEtfs.map(etf => (
+                <th colSpan="6" key={`${etf}-main`} className='bold-left-border'>
+                  {etf}
+                  <button
+                    onClick={() => handleDeselectEtf(etf)}
+                    style={{
+                      marginLeft: '8px',
+                      background: 'none',
+                      border: 'none',
+                      color: 'red',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                    aria-label={`Remove ${etf}`}
+                  >
+                    X
+                  </button>
+                </th>
+              ))}
+            </tr>
+            <tr>
+              <th>Date</th>
+              {selectedEtfs.flatMap(etf => [
+                <th key={`${etf}-close`} className='bold-left-border'>Close</th>,
+                <th key={`${etf}-glp`}>GL%</th>,
+                <th key={`${etf}-dc`}>Detrend</th>,
+                <th key={`${etf}-mm`}>MM</th>,
+                <th key={`${etf}-zs`}>ZS</th>,
+                <th key={`${etf}-lt`}>LT</th>
+              ])}
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(etfData).map(([date, etfsData]) => {
+              const [year, month] = date.split('-').map(Number);
+              const isEvenYear = year % 2 === 0;
+              const isDec = month === 12;
+              const shouldInsertHeader = isEvenYear && isDec;
+
+              return (
+                <React.Fragment key={date}>
+                  {shouldInsertHeader && (
+                    <tr className="interval-header">
+                      <th>Date</th>
+                      {selectedEtfs.map(etf => (
+                        <th colSpan="6" key={`${etf}-interval`} className='bold-left-border'>
+                          {etf}
+                        </th>
+                      ))}
+                    </tr>
+                  )}
+                  <tr>
+                    <td>{date}</td>
+                    {selectedEtfs.flatMap(etf => {
+                      const data = etfsData[etf] || { Close: 0, DC: 0, GLP: 0, MM: 0, ZS: 0, LT: 0 };
+                      return [
+                        <td key={`${date}-${etf}-close`} className='bold-left-border'>{data.Close}</td>,
+                        <td key={`${date}-${etf}-glp`}>{data.GLP}</td>,
+                        <td key={`${date}-${etf}-dc`} style={data.DC !== undefined ? { backgroundColor: getColor(data.DC) } : undefined}>{data.DC}</td>,
+                        <td key={`${date}-${etf}-mm`} style={data.MM !== undefined ? { backgroundColor: getColor(data.MM * 100) } : undefined}>{data.MM}</td>,
+                        <td key={`${date}-${etf}-zs`} style={data.ZS !== undefined ? { backgroundColor: getColor((data.ZS + 3) * 16.67) } : undefined}>{data.ZS}</td>,
+                        <td key={`${date}-${etf}-lt`} style={data.LT !== undefined ? { backgroundColor: getColor(data.LT) } : undefined}>{data.LT}</td>
+                      ];
+                    })}
+                  </tr>
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export default App;

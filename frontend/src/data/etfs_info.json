@@ -1,0 +1,34 @@
+{
+    "XLF": {
+        "sector": "N/A",
+        "sectorSize": "N/A"
+    },
+    "XLE": {
+        "sector": "Energy",
+        "sectorSize": 4500
+    },
+    "QQQ": {
+        "sector": "Hi Tech",
+        "sectorSize": 8700
+    },
+    "B": {
+        "sector": "Industrials",
+        "sectorSize": "N/A"
+    },
+    "C": {
+        "sector": "Financial Services",
+        "sectorSize": "N/A"
+    },
+    "X": {
+        "sector": "Basic Materials",
+        "sectorSize": "N/A"
+    },
+    "VNQ": {
+        "sector": "N/A",
+        "sectorSize": "N/A"
+    },
+    "MVP": {
+        "sector": "N/A",
+        "sectorSize": "N/A"
+    }
+}
